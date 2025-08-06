@@ -11,33 +11,30 @@
       let
         pkgs = import nixpkgs {
           inherit system;
-          config.allowUnfree = true;  # Needed for Steam dependencies
+          config.allowUnfree = true;
         };
+        i686 = pkgs.pkgsi686Linux;
       in
       {
         formatter = pkgs.nixfmt-rfc-style;
         
-        packages.default = pkgs.pkgsi686Linux.stdenv.mkDerivation rec {
+        packages.default = i686.stdenv.mkDerivation rec {
           pname = "SLSsteam";
           version = "0.1.0";
 
-          # Clone directly from GitHub
           src = pkgs.fetchFromGitHub {
             owner = "AceSLS";
             repo = "SLSsteam";
-            rev = "master";  # Or specific commit/tag
-            sha256 = "sha256-Fj2chghqMYq0qz0sN7Pz3eFsUpcHmzhTIDgu7fCzqKY="; # Use fake hash first
+            rev = "master";
+            sha256 = "sha256-Fj2chghqMYq0qz0sN7Pz3eFsUpcHmzhTIDgu7fCzqKY="; # Update with actual hash
           };
 
-          # Get the correct hash with:
-          # nix-prefetch-url --unpack https://github.com/AceSLS/SLSsteam/archive/master.tar.gz
-          # Then replace above
-
-          nativeBuildInputs = with pkgs.pkgsi686Linux; [
-            gnumake  # Use gnumake instead of make
+          nativeBuildInputs = with i686; [
+            gnumake
+            patchelf
           ];
 
-          buildInputs = with pkgs.pkgsi686Linux; [
+          buildInputs = with i686; [
             openssl
           ];
 
@@ -50,6 +47,10 @@
           installPhase = ''
             mkdir -p $out/lib
             cp bin/SLSsteam.so $out/lib/
+            
+            # Set proper RPATH
+            patchelf --set-rpath "${i686.lib.makeLibraryPath buildInputs}" \
+              $out/lib/SLSsteam.so
           '';
 
           meta = {
@@ -59,18 +60,17 @@
           };
         };
 
-        # Add an app to run Steam with SLSsteam
-        apps.default = {
+        # Fixed app definition
+        apps.default = let
+          sls = self.packages.${system}.default;
+          steam = pkgs.steam;
+        in {
           type = "app";
-          program = let
-            sls = self.packages.${system}.default;
-            steam = pkgs.steam;
-          in
-            pkgs.writeScript "slssteam-run" ''
-              #!${pkgs.runtimeShell}
-              export LD_AUDIT="${sls}/lib/SLSsteam.so"
-              exec ${steam}/bin/steam "$@"
-            '';
+          program = toString (pkgs.writeScript "slssteam-run" ''
+            #!${pkgs.runtimeShell} -e
+            export LD_AUDIT="${sls}/lib/SLSsteam.so"
+            exec ${steam}/bin/steam "$@"
+          '');
         };
       }
     );
