@@ -26,7 +26,7 @@
             owner = "AceSLS";
             repo = "SLSsteam";
             rev = "master";  # Or specific commit/tag
-            sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Use fake hash first
+            sha256 = "sha256-Fj2chghqMYq0qz0sN7Pz3eFsUpcHmzhTIDgu7fCzqKY="; # Use fake hash first
           };
 
           # Get the correct hash with:
@@ -40,6 +40,8 @@
           buildInputs = with pkgs.pkgsi686Linux; [
             openssl
           ];
+
+          hardeningDisable = ["format"];
 
           buildPhase = ''
             make
